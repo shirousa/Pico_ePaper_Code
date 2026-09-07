@@ -15,7 +15,7 @@ For more information, please search on the official website:
 > https://www.waveshare.com or https://www.waveshare.com/wiki/Main_Page
 
 ***
-## このフォークについて (Differences from upstream)
+## 日本語：このフォークについて
 
 このリポジトリは [waveshareteam/Pico_ePaper_Code](https://github.com/waveshareteam/Pico_ePaper_Code) のフォークで、`c/` 配下の CMake ビルド構成を作り直しています。upstream 本家は現時点(フォーク後)で変更が無いため、本家との差分はそのまま以下の内容です。
 
@@ -54,3 +54,44 @@ For more information, please search on the official website:
 ### 移行状況
 
 `lib/e-Paper` の全29ドライバ、`examples` の全27デモを上記の個別ライブラリ形式に移行済みです。
+
+***
+## English: About this fork
+
+This repository is a fork of [waveshareteam/Pico_ePaper_Code](https://github.com/waveshareteam/Pico_ePaper_Code) that rebuilds the CMake build setup under `c/`. Upstream has not moved since this fork was created, so the diff against upstream is exactly what's described below.
+
+### What changed
+
+1. **Restructured CMake so each device can be built and linked individually**
+   Previously, `aux_source_directory` swept every driver in `c/lib/e-Paper` (~30 devices) into a single `ePaper` library, and `c/main.c` selected which one to build by commenting/uncommenting lines.
+   This has been split into one `INTERFACE` library per device. Pick only the device(s) you need in `target_link_libraries()`, and only that device's sources get compiled.
+
+   ```cmake
+   # Example: link only the 1.54inch V2 driver and the 2.7inch demo
+   add_subdirectory(path/to/this-repo/c)
+
+   target_link_libraries(YourExecutable
+       ePaper_1in54_V2          # device driver (lib/e-Paper)
+       ePaper_examples_2in7     # demo code (examples) -- pulls in GUI/Fonts/shared image data automatically
+   )
+   ```
+
+   Naming convention:
+   - `ePaper_<component>` — shared pieces: `ePaper_Config` / `ePaper_GUI` / `ePaper_Fonts`
+   - `ePaper_<device>` — device driver itself, e.g. `ePaper_1in54_V2` (`lib/e-Paper`)
+   - `ePaper_examples_<device>` — demo/usage-example code, e.g. `ePaper_examples_2in7` (`examples`)
+
+   `c/` no longer produces an executable on its own (no `pico_sdk_init()` or `add_executable()` in it). It's meant to be consumed from an outer project of your own: `pico_sdk_init()` → `add_subdirectory(path/to/this-repo/c)` → `target_link_libraries()` as shown above.
+
+2. **Added the 1.54inch V2 (`EPD_1in54_V2`) driver**
+   Added the driver (`EPD_1in54_V2.c` / `.h`) for the 1.54inch V2 e-Paper display, which wasn't in upstream.
+
+### Verification status
+
+- Static check: scripted verification that every device's `target_sources` / `target_link_libraries` references resolve (files exist, targets are defined)
+- Real build check: using CMake + Ninja + ARM GNU Toolchain + Pico SDK, an external project linking only `ePaper_1in54_V2` and `ePaper_examples_2in7` compiled and linked cleanly (0 warnings/errors), and no other device's sources were pulled into the build
+- Actual on-device display behavior has not been verified (no hardware testing)
+
+### Migration status
+
+All 29 drivers in `lib/e-Paper` and all 27 demos in `examples` have been migrated to the per-device library form described above.
